@@ -1,0 +1,186 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+		<link rel="stylesheet" href="twbs/bootstrap.css">
+		<link rel="stylesheet" href="twbs/bootstrap-theme.css">
+
+		<style type="text/css">
+			body {
+				padding: 10px;
+			}
+			#pomodoro {
+				font-size: 28px;
+				font-family: monospace;
+				margin-bottom: -10px;
+			}
+		</style>
+		<script type="text/javascript">
+			var app = {
+				dom: function (name) {
+					return document.getElementById(name);
+				},
+				on: function ($elm, event, callback) {
+					$elm.addEventListener(event, callback);
+				},
+				animate: function (frame_callback) {
+					var handler = { _id: null };
+
+					handler.stop = function () {
+						cancelAnimationFrame(handler._id);
+					};
+
+					var loop = function () {
+						frame_callback();
+						handler._id = window.requestAnimationFrame(loop);
+					};
+
+					handler._id = window.requestAnimationFrame(loop);
+
+					return handler;
+				},
+				now: function () {
+					var now = new Date();
+					return now.getTime();
+				}
+			};
+		</script>
+
+	</head>
+	<body>
+		<!--
+			Application View:
+		-->
+
+		<div id="pomodoro">
+			<span id="cycles"></span> &mdash; <span id="minutes"></span>:<span id="seconds"></span>:<span id="milliseconds"></span>
+		</div>
+
+		<hr/>
+		<button class="btn btn-sm btn-warning" id="interrupt">Interrupt</button>
+		<button class="btn btn-sm btn-primary" id="start">Start</button>
+		<button class="btn btn-sm" id="skip">Skip Break</button>
+		<button class="btn btn-sm" id="reset">Reset</button>
+
+		<!--
+			Application Logic:
+		-->
+
+		<script type="text/javascript">
+
+			// Elements
+			// --------
+
+			var $cycles = app.dom('cycles'),
+				$minutes = app.dom('minutes'),
+				$seconds = app.dom('seconds'),
+				$milliseconds = app.dom('milliseconds'),
+				$start = app.dom('start'),
+				$reset = app.dom('reset'),
+				$skip = app.dom('skip'),
+				$interrupt = app.dom('interrupt');
+
+			app._pomodoro = {
+				clock: {
+					minutes: 25,
+					seconds: 0,
+					milliseconds: 0,
+				},
+				cycles: 0,
+				start: -1,
+				time: -1,
+				state: 'stopped',
+
+				take_break: function () {
+					this.state = 'break';
+					this.start = app.now();
+					this.time = 1000 * 60 * 5; // 5 minutes
+				},
+
+				next_cycle: function () {
+					this.state = 'pomodoro';
+					this.start = app.now();
+					this.time = 1000 * 60 * 25; // 25 minutes
+				},
+
+				interrupt: function () {
+					this.start = app.now();
+					this.time = 1000 * 60 * 25; // 25 minutes
+				}
+			};
+
+			// Animation
+			// ---------
+
+			app.animate(function () {
+				var po = app._pomodoro;
+				var clock = po.clock;
+
+				// recalculate time
+				if (po.start != -1) {
+					var time = app.now() - po.start;
+					clock.milliseconds = time % 1000;
+					time = parseInt(time / 1000);
+					clock.seconds = time % 60;
+					clock.minutes = parseInt(time / 60);
+
+					if (po.state == 'pomodoro') {
+						if (clock.minutes == 25) {
+							clock.seconds = 0;
+							clock.milliseconds = 0;
+							po.cycles += 1;
+							po.take_break();
+						}
+					}
+					else if (po.state == 'break') {
+						if (clock.minutes == 5) {
+							clock.seconds = 0;
+							clock.milliseconds = 0;
+							po.state = 'pomodoro';
+							po.next_cycle();
+						}
+					}
+				}
+				else { // reset state
+					clock.milliseconds = 0;
+					clock.seconds = 0;
+					clock.minutes = 0;
+				}
+
+				// update view
+				$cycles.innerHTML = ('000' + po.cycles).substr(-3);
+				$minutes.innerHTML = ('00' + clock.minutes).substr(-2);
+				$seconds.innerHTML = ('00' + clock.seconds).substr(-2);
+				$milliseconds.innerHTML = ('000' + clock.milliseconds).substr(-3);
+				$start.disabled = po.state != 'stopped';
+				$reset.disabled = po.state == 'stopped';
+				$interrupt.disabled = po.state != 'pomodoro';
+				$skip.disabled = po.state != 'break';
+			});
+
+			// Events
+			// ------
+
+			app.on($start, 'click', function (event) {
+				app._pomodoro.next_cycle();
+			});
+
+			app.on($reset, 'click', function (event) {
+				app._pomodoro.state = 'stopped';
+				app._pomodoro.cylces = 0;
+				app._pomodoro.start = -1;
+			});
+
+			app.on($interrupt, 'click', function (event) {
+				app._pomodoro.interrupt();
+			});
+
+			app.on($skip, 'click', function (event) {
+				app._pomodoro.next_cycle();
+			});
+
+		</script>
+
+	</body>
+</html>
