@@ -7,6 +7,7 @@ int main(int argc, char *argv[])
 
     Html5ApplicationViewer viewer;
     viewer.setOrientation(Html5ApplicationViewer::ScreenOrientationAuto);
+    viewer.setWindowFlags(Qt::WindowStaysOnTopHint);
     viewer.showExpanded();
     viewer.loadFile(QLatin1String("html/index.html"));
 
